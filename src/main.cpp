@@ -3,7 +3,10 @@
 
 #undef SAME_ADC
 
+#undef SYNCREAD
+
 #define CURRENT_IN	A10
+
 #ifdef SAME_ADC
 #define VREF_IN    	A11
 #else
@@ -13,6 +16,8 @@
 
 ADC adc;
 
+ADC::Sync_result adcResult;
+
 volatile float vrefValue;
 volatile float currentValue;
 volatile uint8_t adc0Run;
@@ -20,22 +25,30 @@ volatile uint8_t adc1Run;
 
 void adc0isr(void)
 {
-	int adcval = (uint16_t)adc.adc0->readSingle();
+	int adcval0 = (uint16_t)adc.adc0->readSingle();
 
 	if(adc0Run == 1)
 	{
-		vrefValue = adcval;
+		vrefValue = adcval0;
 		adc.adc0->startSingleRead(VREF_IN);
+	}
+
+	int adcval1 = (uint16_t)adc.adc1->readSingle();
+
+	if(adc1Run == 1)
+	{
+		currentValue = adcval1;
+		adc.adc1->startSingleRead(CURRENT_IN);
 	}
 }
 
 void adc1isr(void)
 {
-	int adcval = (uint16_t)adc.adc1->readSingle();
+	int adcval1 = (uint16_t)adc.adc1->readSingle();
 
 	if(adc1Run == 1)
 	{
-		currentValue = adcval;
+		currentValue = adcval1;
 		adc.adc1->startSingleRead(CURRENT_IN);
 #ifdef SAME_ADC
 		adc1Run = 2;
@@ -57,29 +70,34 @@ void setup()
 {
 	delay(1000);
 	Serial.println("Teensy 3.6 ADC Test");
+	adc0Run = 0;
+	adc1Run = 0;
 
 	pinMode(VREF_IN, INPUT_DISABLE);
 	pinMode(CURRENT_IN, INPUT_DISABLE);
 
 	adc.adc0->singleMode();
-	adc.adc0->setAveraging(8); // set number of averages
+	adc.adc0->setAveraging(32); // set number of averages
 	adc.adc0->setResolution(12); // set bits of resolution
 	adc.adc0->setReference(ADC_REFERENCE::REF_3V3);
 	adc.adc0->setConversionSpeed(ADC_CONVERSION_SPEED::HIGH_SPEED_16BITS);
 	adc.adc0->setSamplingSpeed(ADC_SAMPLING_SPEED::MED_SPEED);
-	adc.adc0->enableInterrupts(adc0isr);
+	//adc.adc0->enableInterrupts(adc0isr);
 
 	adc.adc1->singleMode();
-	adc.adc1->setAveraging(8); // set number of averages
-	adc.adc1->setResolution(12); // set bits of resolution
+	adc.adc1->setAveraging(32); // set number of averages
+	adc.adc1->setResolution(16); // set bits of resolution
 	adc.adc1->setReference(ADC_REFERENCE::REF_3V3);
 	adc.adc1->setConversionSpeed(ADC_CONVERSION_SPEED::HIGH_SPEED_16BITS);
 	adc.adc1->setSamplingSpeed(ADC_SAMPLING_SPEED::MED_SPEED);
-	adc.adc1->enableInterrupts(adc1isr);
+	adc.adc1->enableInterrupts(adc0isr);
 
 	vrefValue = 0.0;
 	currentValue = 0.0;
 
+#ifdef SYNCREAD
+	adc.startSynchronizedContinuous(VREF_IN, CURRENT_IN);
+#else
 	adc0Run = 1;
 	adc1Run = 1;
 
@@ -89,10 +107,17 @@ void setup()
 	adc.adc0->startSingleRead(VREF_IN);
 #endif	
 	adc.adc1->startSingleRead(CURRENT_IN);
+#endif
 }
 
 void loop() 
 {
+
+#ifdef SYNCREAD
+	adcResult = adc.readSynchronizedContinuous();
+	vrefValue = (uint16_t)adcResult.result_adc0;
+	currentValue = (uint16_t)adcResult.result_adc1;
+#endif
 	delay(50);
 	Serial.print(vrefValue);
 	Serial.print(' ');
