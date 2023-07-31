@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <ADC.h>
 
-#define SAME_ADC
+#undef SAME_ADC
 
 #define CURRENT_IN	A10
 #ifdef SAME_ADC
