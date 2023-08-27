@@ -25,31 +25,33 @@ volatile uint8_t adc1Run;
 
 void adc0isr(void)
 {
+	//__disable_irq();
 	int adcval0 = (uint16_t)adc.adc0->readSingle();
 
 	if(adc0Run == 1)
 	{
 		vrefValue = adcval0;
-		adc.adc0->startSingleRead(VREF_IN);
+		//adc.adc0->startSingleRead(VREF_IN);
 	}
+	//__enable_irq();
+	//int adcval1 = (uint16_t)adc.adc1->readSingle();
 
-	int adcval1 = (uint16_t)adc.adc1->readSingle();
-
-	if(adc1Run == 1)
-	{
-		currentValue = adcval1;
-		adc.adc1->startSingleRead(CURRENT_IN);
-	}
+	//if(adc1Run == 1)
+	//{
+	//	currentValue = adcval1;
+//		adc.adc1->startSingleRead(CURRENT_IN);
+//	}
 }
 
 void adc1isr(void)
 {
+	//__disable_irq();
 	int adcval1 = (uint16_t)adc.adc1->readSingle();
 
 	if(adc1Run == 1)
 	{
 		currentValue = adcval1;
-		adc.adc1->startSingleRead(CURRENT_IN);
+		//adc.adc1->startSingleRead(CURRENT_IN);
 #ifdef SAME_ADC
 		adc1Run = 2;
 		return;
@@ -63,7 +65,8 @@ void adc1isr(void)
 		adc1Run = 1;
 		return;
 	}
-#endif	
+#endif
+	//__enable_irq();
 }
 
 void setup() 
@@ -77,20 +80,20 @@ void setup()
 	pinMode(CURRENT_IN, INPUT_DISABLE);
 
 	adc.adc0->singleMode();
-	adc.adc0->setAveraging(32); // set number of averages
+	adc.adc0->setAveraging(8); // set number of averages
 	adc.adc0->setResolution(12); // set bits of resolution
 	adc.adc0->setReference(ADC_REFERENCE::REF_3V3);
 	adc.adc0->setConversionSpeed(ADC_CONVERSION_SPEED::HIGH_SPEED_16BITS);
-	adc.adc0->setSamplingSpeed(ADC_SAMPLING_SPEED::MED_SPEED);
-	//adc.adc0->enableInterrupts(adc0isr);
+	adc.adc0->setSamplingSpeed(ADC_SAMPLING_SPEED::HIGH_SPEED);
+	adc.adc0->enableInterrupts(adc0isr);
 
 	adc.adc1->singleMode();
-	adc.adc1->setAveraging(32); // set number of averages
-	adc.adc1->setResolution(16); // set bits of resolution
+	adc.adc1->setAveraging(8); // set number of averages
+	adc.adc1->setResolution(12); // set bits of resolution
 	adc.adc1->setReference(ADC_REFERENCE::REF_3V3);
 	adc.adc1->setConversionSpeed(ADC_CONVERSION_SPEED::HIGH_SPEED_16BITS);
-	adc.adc1->setSamplingSpeed(ADC_SAMPLING_SPEED::MED_SPEED);
-	adc.adc1->enableInterrupts(adc0isr);
+	adc.adc1->setSamplingSpeed(ADC_SAMPLING_SPEED::HIGH_SPEED);
+	adc.adc1->enableInterrupts(adc1isr);
 
 	vrefValue = 0.0;
 	currentValue = 0.0;
@@ -103,10 +106,14 @@ void setup()
 
 	//adc.adc0->calibrate();
 	//adc.adc1->calibrate();
-#ifndef SAME_ADC	
+#ifndef SAME_ADC
+	adc.adc0->stopTimer();
 	adc.adc0->startSingleRead(VREF_IN);
-#endif	
+	adc.adc0->startTimer(1000);
+#endif
+	adc.adc1->stopTimer();
 	adc.adc1->startSingleRead(CURRENT_IN);
+	adc.adc1->startTimer(1000);
 #endif
 }
 
@@ -123,6 +130,6 @@ void loop()
 	Serial.print(' ');
 	Serial.print(currentValue);
 	Serial.print(' ');
-	Serial.println(vrefValue - currentValue);
+	Serial.println(3097.0 - currentValue);
 }
 
